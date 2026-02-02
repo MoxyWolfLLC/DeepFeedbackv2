@@ -59,6 +59,8 @@ export const rubricRouter = router({
         data: {
           title: input.title,
           researchGoals: input.researchGoals,
+          hypotheses: input.hypotheses,
+          audience: input.audience,
           questionCount: input.questionCount,
           questions: [],
           status: 'DRAFT',
@@ -67,7 +69,7 @@ export const rubricRouter = router({
 
       // Generate questions via LLM
       try {
-        const prompt = getPlanningPrompt(input.researchGoals, input.questionCount)
+        const prompt = getPlanningPrompt(input.researchGoals, input.questionCount, input.hypotheses, input.audience)
         const response = await llm(
           [
             { role: 'system', content: PLANNING_SYSTEM_PROMPT },
@@ -152,7 +154,7 @@ export const rubricRouter = router({
         throw new Error('Rubric not found')
       }
 
-      const prompt = getPlanningPrompt(rubric.researchGoals, rubric.questionCount)
+      const prompt = getPlanningPrompt(rubric.researchGoals, rubric.questionCount, rubric.hypotheses, rubric.audience)
       const response = await llm(
         [
           { role: 'system', content: PLANNING_SYSTEM_PROMPT },

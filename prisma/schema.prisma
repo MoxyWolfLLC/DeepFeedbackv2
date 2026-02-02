@@ -16,6 +16,8 @@ model Rubric {
   id            String       @id @default(cuid())
   title         String
   researchGoals String       @map("research_goals")
+  hypotheses    String?      @map("hypotheses")
+  audience      String?      @map("audience")
   questionCount Int          @default(5) @map("question_count")
   questions     Json         @default("[]")
   openingScript String?      @map("opening_script")

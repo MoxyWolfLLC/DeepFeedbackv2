@@ -15,6 +15,8 @@ export default function NewRubricPage() {
   const router = useRouter()
   const [title, setTitle] = useState('')
   const [researchGoals, setResearchGoals] = useState('')
+  const [hypotheses, setHypotheses] = useState('')
+  const [audience, setAudience] = useState('')
   const [questionCount, setQuestionCount] = useState(5)
 
   const createRubric = trpc.rubric.create.useMutation({
@@ -25,7 +27,13 @@ export default function NewRubricPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    createRubric.mutate({ title, researchGoals, questionCount })
+    createRubric.mutate({ 
+      title, 
+      researchGoals, 
+      hypotheses: hypotheses || undefined,
+      audience: audience || undefined,
+      questionCount 
+    })
   }
 
   return (
@@ -81,6 +89,40 @@ Example: We want to understand how new customers experience our onboarding proce
                 />
                 <p className="text-xs text-muted-foreground">
                   The more specific your goals, the better the generated questions.
+                </p>
+              </div>
+
+              {/* Hypotheses */}
+              <div className="space-y-2">
+                <Label htmlFor="hypotheses">Hypotheses (Optional)</Label>
+                <Textarea
+                  id="hypotheses"
+                  placeholder="What do you believe might be true? What assumptions do you want to validate or challenge?
+
+Example: We believe users abandon onboarding because they don't understand the value proposition. We suspect the tutorial is too long and users lose interest."
+                  value={hypotheses}
+                  onChange={(e) => setHypotheses(e.target.value)}
+                  rows={4}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Sharing your hypotheses helps generate questions that explore and test your assumptions.
+                </p>
+              </div>
+
+              {/* Target Audience */}
+              <div className="space-y-2">
+                <Label htmlFor="audience">Target Audience (Optional)</Label>
+                <Textarea
+                  id="audience"
+                  placeholder="Who are you interviewing? Describe the participant profile.
+
+Example: New users who signed up in the last 30 days, completed less than 50% of onboarding, and have not made a purchase yet."
+                  value={audience}
+                  onChange={(e) => setAudience(e.target.value)}
+                  rows={3}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Defining your audience helps tailor questions to their perspective and experience.
                 </p>
               </div>
 

@@ -4,11 +4,17 @@
 
 export const PLANNING_SYSTEM_PROMPT = `You are an expert qualitative researcher specializing in interview design. You create thoughtful, open-ended interview questions that encourage rich, detailed responses.`
 
-export function getPlanningPrompt(researchGoals: string, questionCount: number): string {
+export function getPlanningPrompt(researchGoals: string, questionCount: number, hypotheses?: string | null, audience?: string | null): string {
   return `
 ## Research Goals
 ${researchGoals}
-
+${hypotheses ? `
+## Hypotheses to Explore
+${hypotheses}
+` : ''}${audience ? `
+## Target Audience
+${audience}
+` : ''}
 ## Task
 Generate ${questionCount} interview questions following these principles:
 

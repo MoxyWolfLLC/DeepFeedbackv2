@@ -25,6 +25,8 @@ export const RubricSchema = z.object({
   id: z.string(),
   title: z.string().min(1, 'Title is required'),
   researchGoals: z.string().min(10, 'Research goals must be at least 10 characters'),
+  hypotheses: z.string().nullable(),
+  audience: z.string().nullable(),
   questionCount: z.number().min(3).max(15).default(5),
   questions: z.array(QuestionSchema).default([]),
   openingScript: z.string().nullable(),
@@ -44,6 +46,8 @@ export type Rubric = z.infer<typeof RubricSchema>
 export const CreateRubricInputSchema = z.object({
   title: z.string().min(1, 'Title is required'),
   researchGoals: z.string().min(10, 'Research goals must be at least 10 characters'),
+  hypotheses: z.string().optional(),
+  audience: z.string().optional(),
   questionCount: z.number().min(3).max(15).default(5),
 })
 
@@ -51,6 +55,8 @@ export const UpdateRubricInputSchema = z.object({
   id: z.string(),
   title: z.string().min(1).optional(),
   researchGoals: z.string().min(10).optional(),
+  hypotheses: z.string().optional(),
+  audience: z.string().optional(),
   questionCount: z.number().min(3).max(15).optional(),
   status: RubricStatusSchema.optional(),
 })
