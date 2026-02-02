@@ -1,0 +1,236 @@
+import { z } from 'zod'
+import { router, publicProcedure } from '../server'
+import { StartInterviewInputSchema, SendMessageInputSchema } from '@/types/interview'
+import { llm } from '@/lib/openrouter'
+import { getInterviewSystemPrompt } from '@/lib/prompts'
+
+export const interviewRouter = router({
+  /**
+   * Get interview by access token (public link)
+   */
+  getByToken: publicProcedure
+    .input(z.object({ token: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const interview = await ctx.db.interview.findUnique({
+        where: { accessToken: input.token },
+        include: {
+          rubric: true,
+          messages: {
+            orderBy: { createdAt: 'asc' },
+          },
+        },
+      })
+
+      if (!interview) {
+        throw new Error('Interview not found')
+      }
+
+      return interview
+    }),
+
+  /**
+   * Get interview by ID (internal)
+   */
+  get: publicProcedure
+    .input(z.object({ id: z.string() }))
+    .query(async ({ ctx, input }) => {
+      return ctx.db.interview.findUnique({
+        where: { id: input.id },
+        include: {
+          rubric: true,
+          messages: {
+            orderBy: { createdAt: 'asc' },
+          },
+        },
+      })
+    }),
+
+  /**
+   * List interviews for a rubric
+   */
+  listByRubric: publicProcedure
+    .input(z.object({ rubricId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      return ctx.db.interview.findMany({
+        where: { rubricId: input.rubricId },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          _count: {
+            select: { messages: true },
+          },
+        },
+      })
+    }),
+
+  /**
+   * Start a new interview
+   */
+  start: publicProcedure
+    .input(StartInterviewInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      // Create the interview
+      const interview = await ctx.db.interview.create({
+        data: {
+          rubricId: input.rubricId,
+          participantName: input.participantName,
+          participantEmail: input.participantEmail,
+          status: 'IN_PROGRESS',
+          startedAt: new Date(),
+        },
+        include: {
+          rubric: true,
+        },
+      })
+
+      // Create opening message from the system
+      if (interview.rubric.openingScript) {
+        await ctx.db.message.create({
+          data: {
+            interviewId: interview.id,
+            role: 'ASSISTANT',
+            content: interview.rubric.openingScript,
+          },
+        })
+      }
+
+      return interview
+    }),
+
+  /**
+   * Send a message in an interview
+   */
+  sendMessage: publicProcedure
+    .input(SendMessageInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      // Get interview with context
+      const interview = await ctx.db.interview.findUnique({
+        where: { id: input.interviewId },
+        include: {
+          rubric: true,
+          messages: {
+            orderBy: { createdAt: 'asc' },
+          },
+        },
+      })
+
+      if (!interview) {
+        throw new Error('Interview not found')
+      }
+
+      if (interview.status === 'COMPLETED') {
+        throw new Error('Interview is already completed')
+      }
+
+      // Save user message
+      await ctx.db.message.create({
+        data: {
+          interviewId: interview.id,
+          role: 'USER',
+          content: input.content,
+        },
+      })
+
+      // Build conversation for LLM
+      const systemPrompt = getInterviewSystemPrompt(
+        JSON.stringify(interview.rubric.questions, null, 2),
+        interview.currentQuestion,
+        interview.rubric.openingScript,
+        interview.rubric.closingScript
+      )
+
+      const messages = [
+        { role: 'system' as const, content: systemPrompt },
+        ...interview.messages.map((m) => ({
+          role: m.role.toLowerCase() as 'user' | 'assistant',
+          content: m.content,
+        })),
+        { role: 'user' as const, content: input.content },
+      ]
+
+      // Generate response
+      const response = await llm(messages, {
+        model: 'anthropic/claude-sonnet-4',
+        temperature: 0.7,
+      })
+
+      // Detect ARP phase and completion
+      const arpPhase = detectARPPhase(response)
+      const isComplete = response.includes('[INTERVIEW_COMPLETE]')
+
+      // Clean response (remove markers)
+      const cleanResponse = response
+        .replace(/\[(ACKNOWLEDGMENT|REFLECTION|PROBE|TRANSITION|INTERVIEW_COMPLETE)\]/g, '')
+        .trim()
+
+      // Save assistant message
+      const assistantMessage = await ctx.db.message.create({
+        data: {
+          interviewId: interview.id,
+          role: 'ASSISTANT',
+          content: cleanResponse,
+          arpPhase,
+        },
+      })
+
+      // Update interview state
+      const newTurnCount = interview.turnCount + 1
+      const updateData: any = {
+        turnCount: newTurnCount,
+      }
+
+      if (isComplete || newTurnCount >= interview.maxTurns) {
+        updateData.status = 'COMPLETED'
+        updateData.completedAt = new Date()
+      }
+
+      await ctx.db.interview.update({
+        where: { id: interview.id },
+        data: updateData,
+      })
+
+      return {
+        message: assistantMessage,
+        isComplete: isComplete || newTurnCount >= interview.maxTurns,
+      }
+    }),
+
+  /**
+   * Pause an interview
+   */
+  pause: publicProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.db.interview.update({
+        where: { id: input.id },
+        data: {
+          status: 'PAUSED',
+          pausedAt: new Date(),
+        },
+      })
+    }),
+
+  /**
+   * Resume a paused interview
+   */
+  resume: publicProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.db.interview.update({
+        where: { id: input.id },
+        data: {
+          status: 'IN_PROGRESS',
+          pausedAt: null,
+        },
+      })
+    }),
+})
+
+function detectARPPhase(
+  response: string
+): 'ACKNOWLEDGMENT' | 'REFLECTION' | 'PROBE' | 'TRANSITION' | null {
+  if (response.includes('[ACKNOWLEDGMENT]')) return 'ACKNOWLEDGMENT'
+  if (response.includes('[REFLECTION]')) return 'REFLECTION'
+  if (response.includes('[PROBE]')) return 'PROBE'
+  if (response.includes('[TRANSITION]')) return 'TRANSITION'
+  return null
+}

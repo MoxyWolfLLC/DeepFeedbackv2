@@ -1,0 +1,176 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ============================================
+// RUBRICS (Interview Plans)
+// ============================================
+
+model Rubric {
+  id            String       @id @default(cuid())
+  title         String
+  researchGoals String       @map("research_goals")
+  questionCount Int          @default(5) @map("question_count")
+  questions     Json         @default("[]")
+  openingScript String?      @map("opening_script")
+  closingScript String?      @map("closing_script")
+  status        RubricStatus @default(DRAFT)
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+  createdBy     String?      @map("created_by")
+
+  interviews   Interview[]
+  invitations  Invitation[]
+  analysisJobs AnalysisJob[]
+
+  @@map("rubrics")
+}
+
+enum RubricStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+// ============================================
+// INTERVIEWS
+// ============================================
+
+model Interview {
+  id               String          @id @default(cuid())
+  rubricId         String          @map("rubric_id")
+  rubric           Rubric          @relation(fields: [rubricId], references: [id], onDelete: Cascade)
+  participantName  String?         @map("participant_name")
+  participantEmail String?         @map("participant_email")
+  status           InterviewStatus @default(NOT_STARTED)
+  currentQuestion  Int             @default(0) @map("current_question")
+  turnCount        Int             @default(0) @map("turn_count")
+  maxTurns         Int             @default(20) @map("max_turns")
+  startedAt        DateTime?       @map("started_at")
+  completedAt      DateTime?       @map("completed_at")
+  pausedAt         DateTime?       @map("paused_at")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
+  accessToken      String          @unique @default(cuid()) @map("access_token")
+
+  messages Message[]
+
+  @@index([rubricId])
+  @@index([accessToken])
+  @@map("interviews")
+}
+
+enum InterviewStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  PAUSED
+  COMPLETED
+  ABANDONED
+}
+
+// ============================================
+// MESSAGES
+// ============================================
+
+model Message {
+  id          String      @id @default(cuid())
+  interviewId String      @map("interview_id")
+  interview   Interview   @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  role        MessageRole
+  content     String
+  arpPhase    ARPPhase?   @map("arp_phase")
+  questionRef Int?        @map("question_ref")
+  tokenCount  Int?        @map("token_count")
+  createdAt   DateTime    @default(now()) @map("created_at")
+
+  @@index([interviewId])
+  @@map("messages")
+}
+
+enum MessageRole {
+  SYSTEM
+  USER
+  ASSISTANT
+}
+
+enum ARPPhase {
+  ACKNOWLEDGMENT
+  REFLECTION
+  PROBE
+  TRANSITION
+}
+
+// ============================================
+// ANALYSIS
+// ============================================
+
+model AnalysisJob {
+  id               String         @id @default(cuid())
+  rubricId         String         @map("rubric_id")
+  rubric           Rubric         @relation(fields: [rubricId], references: [id], onDelete: Cascade)
+  status           AnalysisStatus @default(PENDING)
+  progress         Int            @default(0)
+  interviewIds     String[]       @map("interview_ids")
+  interviewCount   Int            @map("interview_count")
+  councilSessionId String?        @map("council_session_id")
+  useCouncil       Boolean        @default(true) @map("use_council")
+  themes           Json?
+  insights         Json?
+  recommendations  Json?
+  confidence       Float?
+  processingTime   Int?           @map("processing_time")
+  tokenUsage       Int?           @map("token_usage")
+  createdAt        DateTime       @default(now()) @map("created_at")
+  completedAt      DateTime?      @map("completed_at")
+
+  @@index([rubricId])
+  @@map("analysis_jobs")
+}
+
+enum AnalysisStatus {
+  PENDING
+  COLLECTING_RESPONSES
+  PEER_REVIEW
+  SYNTHESIZING
+  HITL_REVIEW
+  COMPLETED
+  FAILED
+}
+
+// ============================================
+// INVITATIONS
+// ============================================
+
+model Invitation {
+  id          String           @id @default(cuid())
+  rubricId    String           @map("rubric_id")
+  rubric      Rubric           @relation(fields: [rubricId], references: [id], onDelete: Cascade)
+  email       String
+  name        String?
+  status      InvitationStatus @default(PENDING)
+  sentAt      DateTime?        @map("sent_at")
+  openedAt    DateTime?        @map("opened_at")
+  startedAt   DateTime?        @map("started_at")
+  completedAt DateTime?        @map("completed_at")
+  interviewId String?          @unique @map("interview_id")
+  createdAt   DateTime         @default(now()) @map("created_at")
+
+  @@index([rubricId])
+  @@index([email])
+  @@map("invitations")
+}
+
+enum InvitationStatus {
+  PENDING
+  SENT
+  OPENED
+  STARTED
+  COMPLETED
+  BOUNCED
+}
