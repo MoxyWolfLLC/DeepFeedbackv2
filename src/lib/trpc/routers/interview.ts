@@ -9,12 +9,21 @@ export const interviewRouter = router({
    * Create a shareable interview link for a rubric
    */
   createLink: publicProcedure
-    .input(z.object({ 
+    .input(z.object({
       rubricId: z.string(),
       email: z.string().email().optional(),
       name: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
+      // First check if the rubric exists
+      const rubric = await ctx.db.rubric.findUnique({
+        where: { id: input.rubricId },
+      })
+
+      if (!rubric) {
+        throw new Error('Survey not found')
+      }
+
       const interview = await ctx.db.interview.create({
         data: {
           rubricId: input.rubricId,
@@ -92,6 +101,15 @@ export const interviewRouter = router({
   start: publicProcedure
     .input(StartInterviewInputSchema)
     .mutation(async ({ ctx, input }) => {
+      // First check if the rubric exists
+      const rubric = await ctx.db.rubric.findUnique({
+        where: { id: input.rubricId },
+      })
+
+      if (!rubric) {
+        throw new Error('Survey not found. It may have been deleted or the link is invalid.')
+      }
+
       // Create the interview
       const interview = await ctx.db.interview.create({
         data: {
