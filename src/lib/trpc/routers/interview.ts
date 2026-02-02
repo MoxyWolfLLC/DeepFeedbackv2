@@ -62,6 +62,59 @@ export const interviewRouter = router({
     }),
 
   /**
+   * Initialize an interview with opening message (for interviews without messages)
+   */
+  initialize: publicProcedure
+    .input(z.object({ interviewId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const interview = await ctx.db.interview.findUnique({
+        where: { id: input.interviewId },
+        include: {
+          rubric: true,
+          messages: true,
+        },
+      })
+
+      if (!interview) {
+        throw new Error('Interview not found')
+      }
+
+      // If already has messages, don't reinitialize
+      if (interview.messages.length > 0) {
+        return interview
+      }
+
+      // Get first question from rubric for fallback greeting
+      const questions = (interview.rubric.questions as any[]) || []
+      const firstQuestion = questions[0]?.text || 'Tell me about your experience.'
+
+      // Create opening message
+      const openingMessage = interview.rubric.openingScript ||
+        `Hi! Thank you for participating in this research interview about "${interview.rubric.title}".\n\nI'll be asking you a few questions, and there are no right or wrong answers — I'm just interested in hearing your thoughts and experiences.\n\nLet's start with the first question:\n\n${firstQuestion}`
+
+      await ctx.db.message.create({
+        data: {
+          interviewId: interview.id,
+          role: 'ASSISTANT',
+          content: openingMessage,
+        },
+      })
+
+      // Update status to IN_PROGRESS if it was NOT_STARTED
+      if (interview.status === 'NOT_STARTED') {
+        await ctx.db.interview.update({
+          where: { id: interview.id },
+          data: {
+            status: 'IN_PROGRESS',
+            startedAt: new Date(),
+          },
+        })
+      }
+
+      return interview
+    }),
+
+  /**
    * Get interview by ID (internal)
    */
   get: publicProcedure

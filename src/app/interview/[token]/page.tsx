@@ -12,12 +12,23 @@ import { trpc } from '@/lib/trpc/client'
 export default function InterviewPage() {
   const { token } = useParams<{ token: string }>()
   const [message, setMessage] = useState('')
+  const [isInitializing, setIsInitializing] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const { data: interview, isLoading, refetch } = trpc.interview.getByToken.useQuery(
     { token },
     { enabled: !!token }
   )
+
+  const initializeInterview = trpc.interview.initialize.useMutation({
+    onSuccess: () => {
+      refetch()
+      setIsInitializing(false)
+    },
+    onError: () => {
+      setIsInitializing(false)
+    },
+  })
 
   const sendMessage = trpc.interview.sendMessage.useMutation({
     onSuccess: () => {
@@ -26,15 +37,28 @@ export default function InterviewPage() {
     },
   })
 
+  // Auto-initialize if interview has no messages
+  useEffect(() => {
+    if (interview && interview.messages.length === 0 && !isInitializing && interview.status !== 'COMPLETED') {
+      setIsInitializing(true)
+      initializeInterview.mutate({ interviewId: interview.id })
+    }
+  }, [interview, isInitializing])
+
   // Auto-scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [interview?.messages])
 
-  if (isLoading) {
+  if (isLoading || isInitializing) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground mx-auto" />
+          {isInitializing && (
+            <p className="mt-4 text-muted-foreground">Starting your interview...</p>
+          )}
+        </div>
       </div>
     )
   }
