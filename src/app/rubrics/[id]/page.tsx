@@ -1,22 +1,45 @@
 'use client'
 
 import { useState } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, BarChart3, Share2, RefreshCw, Loader2 } from 'lucide-react'
+import { ArrowLeft, BarChart3, Share2, RefreshCw, Loader2, Pencil, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 import { trpc } from '@/lib/trpc/client'
 import { ShareModal } from '@/components/share-modal'
 
 export default function RubricDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const router = useRouter()
   const [shareModalOpen, setShareModalOpen] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const { data: rubric, isLoading, refetch } = trpc.rubric.get.useQuery({ id })
 
   const regenerate = trpc.rubric.regenerateQuestions.useMutation({
     onSuccess: () => refetch(),
   })
+
+  const deleteMutation = trpc.rubric.delete.useMutation({
+    onSuccess: () => {
+      router.push('/')
+    },
+  })
+
+  const handleDelete = () => {
+    deleteMutation.mutate({ id })
+  }
 
   if (isLoading) {
     return (
@@ -62,6 +85,45 @@ export default function RubricDetailPage() {
             <p className="text-muted-foreground mt-1">{rubric.researchGoals}</p>
           </div>
           <div className="flex items-center gap-2">
+            <Link href={`/rubrics/${id}/edit`}>
+              <Button variant="outline" size="sm">
+                <Pencil className="w-4 h-4 mr-2" />
+                Edit
+              </Button>
+            </Link>
+            <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700 hover:bg-red-50">
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete Research Project?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete "{rubric.title}" and all associated interviews and data. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleDelete}
+                    className="bg-red-600 hover:bg-red-700"
+                    disabled={deleteMutation.isPending}
+                  >
+                    {deleteMutation.isPending ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Deleting...
+                      </>
+                    ) : (
+                      'Delete'
+                    )}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
             <Button variant="outline" size="sm" onClick={() => setShareModalOpen(true)}>
               <Share2 className="w-4 h-4 mr-2" />
               Share
