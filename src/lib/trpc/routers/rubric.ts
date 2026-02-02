@@ -78,8 +78,9 @@ export const rubricRouter = router({
           { model: 'anthropic/claude-sonnet-4', temperature: 0.7 }
         )
 
-        // Parse JSON response
-        const questions = JSON.parse(response)
+        // Parse JSON response - clean up markdown code fences if present
+        const cleanResponse = response.replace(/```json\n?|\n?```/g, '').trim()
+        const questions = JSON.parse(cleanResponse)
 
         // Generate scripts
         const scriptPrompt = getScriptGenerationPrompt(
@@ -94,7 +95,8 @@ export const rubricRouter = router({
           { model: 'anthropic/claude-sonnet-4', temperature: 0.7 }
         )
 
-        const scripts = JSON.parse(scriptResponse)
+        const cleanScriptResponse = scriptResponse.replace(/```json\n?|\n?```/g, '').trim()
+        const scripts = JSON.parse(cleanScriptResponse)
 
         // Update rubric with generated content
         const updatedRubric = await ctx.db.rubric.update({
@@ -154,20 +156,49 @@ export const rubricRouter = router({
         throw new Error('Rubric not found')
       }
 
-      const prompt = getPlanningPrompt(rubric.researchGoals, rubric.questionCount, rubric.hypotheses, rubric.audience)
-      const response = await llm(
-        [
-          { role: 'system', content: PLANNING_SYSTEM_PROMPT },
-          { role: 'user', content: prompt },
-        ],
-        { model: 'anthropic/claude-sonnet-4', temperature: 0.8 }
-      )
+      try {
+        // Generate questions
+        const prompt = getPlanningPrompt(rubric.researchGoals, rubric.questionCount, rubric.hypotheses, rubric.audience)
+        const response = await llm(
+          [
+            { role: 'system', content: PLANNING_SYSTEM_PROMPT },
+            { role: 'user', content: prompt },
+          ],
+          { model: 'anthropic/claude-sonnet-4', temperature: 0.8 }
+        )
 
-      const questions = JSON.parse(response)
+        // Clean up response - sometimes LLMs wrap in markdown
+        const cleanResponse = response.replace(/```json\n?|\n?```/g, '').trim()
+        const questions = JSON.parse(cleanResponse)
 
-      return ctx.db.rubric.update({
-        where: { id: input.id },
-        data: { questions },
-      })
+        // Also regenerate scripts
+        const scriptPrompt = getScriptGenerationPrompt(
+          rubric.researchGoals,
+          JSON.stringify(questions, null, 2)
+        )
+        const scriptResponse = await llm(
+          [
+            { role: 'system', content: PLANNING_SYSTEM_PROMPT },
+            { role: 'user', content: scriptPrompt },
+          ],
+          { model: 'anthropic/claude-sonnet-4', temperature: 0.7 }
+        )
+
+        const cleanScriptResponse = scriptResponse.replace(/```json\n?|\n?```/g, '').trim()
+        const scripts = JSON.parse(cleanScriptResponse)
+
+        return ctx.db.rubric.update({
+          where: { id: input.id },
+          data: {
+            questions,
+            openingScript: scripts.openingScript,
+            closingScript: scripts.closingScript,
+            status: 'ACTIVE',
+          },
+        })
+      } catch (error) {
+        console.error('Failed to regenerate questions:', error)
+        throw new Error(`Failed to regenerate questions: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      }
     }),
 })
