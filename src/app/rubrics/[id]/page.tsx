@@ -1,14 +1,17 @@
 'use client'
 
+import { useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Users, BarChart3, Share2, RefreshCw, Loader2 } from 'lucide-react'
+import { ArrowLeft, BarChart3, Share2, RefreshCw, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { trpc } from '@/lib/trpc/client'
+import { ShareModal } from '@/components/share-modal'
 
 export default function RubricDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const [shareModalOpen, setShareModalOpen] = useState(false)
   const { data: rubric, isLoading, refetch } = trpc.rubric.get.useQuery({ id })
 
   const regenerate = trpc.rubric.regenerateQuestions.useMutation({
@@ -32,7 +35,8 @@ export default function RubricDetailPage() {
   }
 
   const questions = rubric.questions as any[] || []
-  const interviewUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/interview/[token]`
+  const completedInterviews = rubric.interviews.filter(i => i.status === 'COMPLETED').length
+  const canAnalyze = completedInterviews >= 5
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -58,16 +62,23 @@ export default function RubricDetailPage() {
             <p className="text-muted-foreground mt-1">{rubric.researchGoals}</p>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={() => setShareModalOpen(true)}>
               <Share2 className="w-4 h-4 mr-2" />
               Share
             </Button>
-            <Link href={`/rubrics/${id}/analysis`}>
-              <Button variant="outline" size="sm">
+            {canAnalyze ? (
+              <Link href={`/rubrics/${id}/analysis`}>
+                <Button variant="outline" size="sm">
+                  <BarChart3 className="w-4 h-4 mr-2" />
+                  Analysis
+                </Button>
+              </Link>
+            ) : (
+              <Button variant="outline" size="sm" disabled title={`Need ${5 - completedInterviews} more completed interviews`}>
                 <BarChart3 className="w-4 h-4 mr-2" />
                 Analysis
               </Button>
-            </Link>
+            )}
           </div>
         </div>
 
@@ -87,8 +98,15 @@ export default function RubricDetailPage() {
           </Card>
           <Card>
             <CardContent className="pt-6">
-              <div className="text-2xl font-bold">{rubric._count.analysisJobs}</div>
-              <p className="text-sm text-muted-foreground">Analyses</p>
+              <div className="text-2xl font-bold">
+                {completedInterviews}
+                {!canAnalyze && (
+                  <span className="text-sm font-normal text-muted-foreground ml-2">
+                    / 5 needed
+                  </span>
+                )}
+              </div>
+              <p className="text-sm text-muted-foreground">Completed</p>
             </CardContent>
           </Card>
         </div>
@@ -156,9 +174,9 @@ export default function RubricDetailPage() {
                 Participants who have taken this interview
               </CardDescription>
             </div>
-            <Button size="sm">
-              <Users className="w-4 h-4 mr-2" />
-              Invite Participants
+            <Button size="sm" onClick={() => setShareModalOpen(true)}>
+              <Share2 className="w-4 h-4 mr-2" />
+              Share Interview
             </Button>
           </CardHeader>
           <CardContent>
@@ -199,6 +217,14 @@ export default function RubricDetailPage() {
           </CardContent>
         </Card>
       </main>
+
+      {/* Share Modal */}
+      <ShareModal
+        open={shareModalOpen}
+        onOpenChange={setShareModalOpen}
+        rubricId={id}
+        rubricTitle={rubric.title}
+      />
     </div>
   )
 }

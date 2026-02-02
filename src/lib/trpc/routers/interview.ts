@@ -6,6 +6,30 @@ import { getInterviewSystemPrompt } from '@/lib/prompts'
 
 export const interviewRouter = router({
   /**
+   * Create a shareable interview link for a rubric
+   */
+  createLink: publicProcedure
+    .input(z.object({ 
+      rubricId: z.string(),
+      email: z.string().email().optional(),
+      name: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const interview = await ctx.db.interview.create({
+        data: {
+          rubricId: input.rubricId,
+          participantEmail: input.email,
+          participantName: input.name,
+          status: 'NOT_STARTED',
+        },
+      })
+      return {
+        token: interview.accessToken,
+        id: interview.id,
+      }
+    }),
+
+  /**
    * Get interview by access token (public link)
    */
   getByToken: publicProcedure
