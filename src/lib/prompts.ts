@@ -62,11 +62,12 @@ ${questions}
 Generate an opening script and closing script for this interview.
 
 ### Opening Script Should:
-- Welcome the participant warmly
-- Explain the purpose (without leading their answers)
-- Set expectations for duration and format
+- Welcome the participant warmly (use [Name] as placeholder if addressing by name)
+- Briefly explain the purpose (1-2 sentences, without leading their answers)
 - Reassure them there are no wrong answers
-- Ask for consent to proceed
+- End with the FIRST interview question from the list above
+- Do NOT end with a yes/no consent question - end with an open-ended question they can respond to
+- Keep it concise (under 100 words) - participants want to start talking, not read a wall of text
 
 ### Closing Script Should:
 - Thank them genuinely
