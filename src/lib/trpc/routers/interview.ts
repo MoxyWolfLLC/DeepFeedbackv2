@@ -106,16 +106,21 @@ export const interviewRouter = router({
         },
       })
 
-      // Create opening message from the system
-      if (interview.rubric.openingScript) {
-        await ctx.db.message.create({
-          data: {
-            interviewId: interview.id,
-            role: 'ASSISTANT',
-            content: interview.rubric.openingScript,
-          },
-        })
-      }
+      // Get first question from rubric for fallback greeting
+      const questions = (interview.rubric.questions as any[]) || []
+      const firstQuestion = questions[0]?.text || 'Tell me about your experience.'
+
+      // Create opening message - use openingScript if available, otherwise generate a default
+      const openingMessage = interview.rubric.openingScript ||
+        `Hi! Thank you for participating in this research interview about "${interview.rubric.title}".\n\nI'll be asking you a few questions, and there are no right or wrong answers — I'm just interested in hearing your thoughts and experiences.\n\nLet's start with the first question:\n\n${firstQuestion}`
+
+      await ctx.db.message.create({
+        data: {
+          interviewId: interview.id,
+          role: 'ASSISTANT',
+          content: openingMessage,
+        },
+      })
 
       return interview
     }),
