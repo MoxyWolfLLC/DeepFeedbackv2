@@ -329,6 +329,17 @@ export const interviewRouter = router({
         },
       })
     }),
+
+  /**
+   * Delete an interview
+   */
+  delete: publicProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.db.interview.delete({
+        where: { id: input.id },
+      })
+    }),
 })
 
 function detectARPPhase(

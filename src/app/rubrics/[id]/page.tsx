@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, BarChart3, Share2, RefreshCw, Loader2, Pencil, Trash2 } from 'lucide-react'
+import { ArrowLeft, BarChart3, Share2, RefreshCw, Loader2, Pencil, Trash2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import {
@@ -25,6 +25,7 @@ export default function RubricDetailPage() {
   const router = useRouter()
   const [shareModalOpen, setShareModalOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [interviewToDelete, setInterviewToDelete] = useState<string | null>(null)
   const { data: rubric, isLoading, refetch } = trpc.rubric.get.useQuery({ id })
 
   const regenerate = trpc.rubric.regenerateQuestions.useMutation({
@@ -37,8 +38,21 @@ export default function RubricDetailPage() {
     },
   })
 
+  const deleteInterviewMutation = trpc.interview.delete.useMutation({
+    onSuccess: () => {
+      setInterviewToDelete(null)
+      refetch()
+    },
+  })
+
   const handleDelete = () => {
     deleteMutation.mutate({ id })
+  }
+
+  const handleDeleteInterview = () => {
+    if (interviewToDelete) {
+      deleteInterviewMutation.mutate({ id: interviewToDelete })
+    }
   }
 
   if (isLoading) {
@@ -251,7 +265,7 @@ export default function RubricDetailPage() {
                 {rubric.interviews.map((interview) => (
                   <div
                     key={interview.id}
-                    className="flex items-center justify-between py-2 border-b last:border-0"
+                    className="flex items-center justify-between py-2 border-b last:border-0 group"
                   >
                     <div>
                       <p className="font-medium">
@@ -261,17 +275,27 @@ export default function RubricDetailPage() {
                         {interview.participantEmail || 'No email'}
                       </p>
                     </div>
-                    <span
-                      className={`px-2 py-1 text-xs rounded-full ${
-                        interview.status === 'COMPLETED'
-                          ? 'bg-green-100 text-green-700'
-                          : interview.status === 'IN_PROGRESS'
-                          ? 'bg-blue-100 text-blue-700'
-                          : 'bg-gray-100 text-gray-700'
-                      }`}
-                    >
-                      {interview.status}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`px-2 py-1 text-xs rounded-full ${
+                          interview.status === 'COMPLETED'
+                            ? 'bg-green-100 text-green-700'
+                            : interview.status === 'IN_PROGRESS'
+                            ? 'bg-blue-100 text-blue-700'
+                            : 'bg-gray-100 text-gray-700'
+                        }`}
+                      >
+                        {interview.status}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 hover:bg-red-50 h-8 w-8 p-0"
+                        onClick={() => setInterviewToDelete(interview.id)}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -287,6 +311,35 @@ export default function RubricDetailPage() {
         rubricId={id}
         rubricTitle={rubric.title}
       />
+
+      {/* Delete Interview Dialog */}
+      <AlertDialog open={!!interviewToDelete} onOpenChange={(open) => !open && setInterviewToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Interview?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this interview response and all its messages. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteInterview}
+              className="bg-red-600 hover:bg-red-700"
+              disabled={deleteInterviewMutation.isPending}
+            >
+              {deleteInterviewMutation.isPending ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
