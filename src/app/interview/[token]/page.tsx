@@ -113,10 +113,10 @@ export default function InterviewPage() {
       <header className="bg-white border-b py-4 px-4">
         <div className="max-w-2xl mx-auto">
           <h1 className="font-semibold">{interview.rubric.title}</h1>
-          <div className="flex items-center gap-4 mt-2">
+          <div className="flex items-center gap-2 mt-2">
             <Progress value={progress} className="flex-1 h-2" />
-            <span className="text-sm text-muted-foreground">
-              {interview.turnCount} / {interview.maxTurns}
+            <span className="text-xs text-muted-foreground">
+              {progress < 30 ? 'Just getting started' : progress < 70 ? 'Making progress' : 'Almost done'}
             </span>
           </div>
         </div>
