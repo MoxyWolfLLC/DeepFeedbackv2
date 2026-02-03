@@ -50,6 +50,7 @@ model Interview {
   rubric           Rubric          @relation(fields: [rubricId], references: [id], onDelete: Cascade)
   participantName  String?         @map("participant_name")
   participantEmail String?         @map("participant_email")
+  wantsResults     Boolean         @default(false) @map("wants_results")
   status           InterviewStatus @default(NOT_STARTED)
   currentQuestion  Int             @default(0) @map("current_question")
   turnCount        Int             @default(0) @map("turn_count")

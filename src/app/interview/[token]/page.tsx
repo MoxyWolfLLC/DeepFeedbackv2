@@ -2,9 +2,11 @@
 
 import { useParams } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
-import { Loader2, Send } from 'lucide-react'
+import { Loader2, Send, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { trpc } from '@/lib/trpc/client'
@@ -13,6 +15,11 @@ export default function InterviewPage() {
   const { token } = useParams<{ token: string }>()
   const [message, setMessage] = useState('')
   const [isInitializing, setIsInitializing] = useState(false)
+  const [showOptIn, setShowOptIn] = useState(true)
+  const [optInSubmitted, setOptInSubmitted] = useState(false)
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [email, setEmail] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const { data: interview, isLoading, refetch } = trpc.interview.getByToken.useQuery(
@@ -33,6 +40,13 @@ export default function InterviewPage() {
   const sendMessage = trpc.interview.sendMessage.useMutation({
     onSuccess: () => {
       setMessage('')
+      refetch()
+    },
+  })
+
+  const optIn = trpc.interview.optInForResults.useMutation({
+    onSuccess: () => {
+      setOptInSubmitted(true)
       refetch()
     },
   })
@@ -145,13 +159,93 @@ export default function InterviewPage() {
         <div className="max-w-2xl mx-auto">
           {interview.status === 'COMPLETED' ? (
             <Card>
-              <CardContent className="py-6 text-center">
-                <p className="text-lg font-medium text-green-600">
-                  Thank you for completing this interview!
-                </p>
-                <p className="text-muted-foreground mt-2">
-                  Your responses have been recorded.
-                </p>
+              <CardContent className="py-6">
+                <div className="text-center mb-6">
+                  <p className="text-lg font-medium text-green-600">
+                    Thank you for completing this interview!
+                  </p>
+                  <p className="text-muted-foreground mt-2">
+                    Your responses have been recorded.
+                  </p>
+                </div>
+
+                {/* Results Opt-in */}
+                {showOptIn && !optInSubmitted && !interview.wantsResults && (
+                  <div className="border-t pt-6">
+                    <p className="text-center font-medium mb-4">
+                      Would you like to receive the overall research results when they're ready?
+                    </p>
+                    <div className="space-y-4 max-w-sm mx-auto">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label htmlFor="firstName">First Name</Label>
+                          <Input
+                            id="firstName"
+                            value={firstName}
+                            onChange={(e) => setFirstName(e.target.value)}
+                            placeholder="Jane"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="lastName">Last Name</Label>
+                          <Input
+                            id="lastName"
+                            value={lastName}
+                            onChange={(e) => setLastName(e.target.value)}
+                            placeholder="Doe"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <Label htmlFor="email">Email</Label>
+                        <Input
+                          id="email"
+                          type="email"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          placeholder="jane@example.com"
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          className="flex-1"
+                          onClick={() => {
+                            if (firstName && lastName && email) {
+                              optIn.mutate({
+                                interviewId: interview.id,
+                                firstName,
+                                lastName,
+                                email,
+                              })
+                            }
+                          }}
+                          disabled={!firstName || !lastName || !email || optIn.isPending}
+                        >
+                          {optIn.isPending ? (
+                            <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                          ) : null}
+                          Yes, send me the results
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          onClick={() => setShowOptIn(false)}
+                        >
+                          No thanks
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Confirmation after opt-in */}
+                {(optInSubmitted || interview.wantsResults) && (
+                  <div className="border-t pt-6 text-center">
+                    <div className="inline-flex items-center gap-2 text-green-600">
+                      <Check className="w-5 h-5" />
+                      <span>We'll send you the results when they're ready!</span>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           ) : (

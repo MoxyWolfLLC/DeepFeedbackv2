@@ -340,6 +340,27 @@ export const interviewRouter = router({
         where: { id: input.id },
       })
     }),
+
+  /**
+   * Opt in to receive results
+   */
+  optInForResults: publicProcedure
+    .input(z.object({
+      interviewId: z.string(),
+      firstName: z.string().min(1),
+      lastName: z.string().min(1),
+      email: z.string().email(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      return ctx.db.interview.update({
+        where: { id: input.interviewId },
+        data: {
+          participantName: `${input.firstName} ${input.lastName}`,
+          participantEmail: input.email,
+          wantsResults: true,
+        },
+      })
+    }),
 })
 
 function detectARPPhase(
