@@ -62,6 +62,35 @@ export const interviewRouter = router({
     }),
 
   /**
+   * Get interview by ID (for researchers to view transcript)
+   */
+  getById: publicProcedure
+    .input(z.object({ id: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const interview = await ctx.db.interview.findUnique({
+        where: { id: input.id },
+        include: {
+          rubric: {
+            select: {
+              id: true,
+              title: true,
+              questions: true,
+            },
+          },
+          messages: {
+            orderBy: { createdAt: 'asc' },
+          },
+        },
+      })
+
+      if (!interview) {
+        throw new Error('Interview not found')
+      }
+
+      return interview
+    }),
+
+  /**
    * Initialize an interview with opening message (for interviews without messages)
    */
   initialize: publicProcedure

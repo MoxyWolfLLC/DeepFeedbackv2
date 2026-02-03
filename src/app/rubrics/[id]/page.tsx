@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, BarChart3, Share2, RefreshCw, Loader2, Pencil, Trash2, X } from 'lucide-react'
+import { ArrowLeft, BarChart3, Share2, RefreshCw, Loader2, Pencil, Trash2, X, Eye } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import {
@@ -287,6 +287,16 @@ export default function RubricDetailPage() {
                       >
                         {interview.status}
                       </span>
+                      <Link href={`/interviews/${interview.id}`}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          title="View responses"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </Button>
+                      </Link>
                       <Button
                         variant="ghost"
                         size="sm"
