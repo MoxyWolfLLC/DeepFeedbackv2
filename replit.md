@@ -75,3 +75,28 @@ Run `npx prisma db push` to sync schema and `npx prisma generate` to generate cl
 - `@supabase/supabase-js` - Supabase client (available but Prisma is primary data access)
 - `@radix-ui/*` - Accessible UI primitives
 - `zod` - Schema validation
+
+## Interview Methodology
+
+### The Mom Test Integration
+The interview system is built on principles from "The Mom Test" book (reference material in `/the_mom_test/` directory). Key principles:
+
+1. **Facts over opinions**: Questions focus on past behaviors, not hypothetical futures
+2. **Specifics over generics**: When participants say "usually" or "always", the AI anchors to specific examples
+3. **Dig into emotions**: Strong feelings indicate important topics to explore
+4. **Deflect compliments**: Redirect vague praise to concrete specifics
+5. **Anchor fluff**: Convert hypotheticals ("I would...") into real examples ("When did you last...")
+
+### Question Generation
+Questions are designed to:
+- Ask about past experiences, not future intentions
+- Use patterns like "Talk me through the last time..." and "How are you dealing with this now?"
+- Avoid leading questions that suggest the "right" answer
+- Include at least one question that could disprove the hypothesis
+
+### Interview AI Behavior
+The AI interviewer:
+- Uses ARP methodology (Acknowledge, Reflect, Probe)
+- Probes deeper when answers are vague or generic
+- Treats lukewarm responses as valuable data
+- Seeks disconfirming evidence, not just validation
