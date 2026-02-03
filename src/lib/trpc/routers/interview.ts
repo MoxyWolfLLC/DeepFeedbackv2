@@ -270,7 +270,10 @@ export const interviewRouter = router({
         JSON.stringify(interview.rubric.questions, null, 2),
         interview.currentQuestion,
         interview.rubric.openingScript,
-        interview.rubric.closingScript
+        interview.rubric.closingScript,
+        interview.rubric.questionCount,
+        interview.turnCount,
+        interview.maxTurns
       )
 
       const messages = [
