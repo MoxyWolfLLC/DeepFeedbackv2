@@ -74,8 +74,8 @@ export const analysisRouter = router({
         },
       })
 
-      if (interviews.length < 3) {
-        throw new Error('At least 3 completed interviews required for analysis')
+      if (interviews.length < 5) {
+        throw new Error('At least 5 completed interviews required for analysis')
       }
 
       // Create analysis job

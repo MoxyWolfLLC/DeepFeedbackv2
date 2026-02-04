@@ -95,7 +95,7 @@ export default function AnalysisPage() {
           </div>
           <Button
             onClick={handleRunAnalysis}
-            disabled={isRunning || completedInterviews.length < 3}
+            disabled={isRunning || completedInterviews.length < 5}
           >
             {isRunning ? (
               <>
@@ -136,11 +136,11 @@ export default function AnalysisPage() {
               <BarChart3 className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
               <h3 className="text-lg font-medium mb-2">No analysis yet</h3>
               <p className="text-muted-foreground mb-4">
-                {completedInterviews.length < 3
-                  ? `You need at least 3 completed interviews to run analysis. Currently have ${completedInterviews.length}.`
+                {completedInterviews.length < 5
+                  ? `You need at least 5 completed interviews to run analysis. Currently have ${completedInterviews.length}.`
                   : `You have ${completedInterviews.length} completed interviews ready for analysis.`}
               </p>
-              {completedInterviews.length >= 3 && (
+              {completedInterviews.length >= 5 && (
                 <Button onClick={handleRunAnalysis}>
                   <BarChart3 className="w-4 h-4 mr-2" />
                   Run Analysis
