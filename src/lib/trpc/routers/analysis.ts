@@ -118,15 +118,24 @@ export const analysisRouter = router({
             {
               role: 'system',
               content:
-                'You are an expert qualitative researcher analyzing interview data. Be specific, use direct quotes, and provide actionable insights.',
+                'You are an expert qualitative researcher analyzing interview data. Be specific, use direct quotes, and provide actionable insights. Return ONLY valid JSON with no markdown formatting or code blocks.',
             },
             { role: 'user', content: prompt },
           ],
           { model: 'anthropic/claude-sonnet-4', maxTokens: 8000 }
         )
 
+        // Extract JSON from response (handles markdown code blocks)
+        let jsonStr = response.trim()
+        
+        // Remove markdown code blocks if present
+        const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/)
+        if (jsonMatch) {
+          jsonStr = jsonMatch[1].trim()
+        }
+        
         // Parse response
-        const results = JSON.parse(response)
+        const results = JSON.parse(jsonStr)
 
         const processingTime = Date.now() - startTime
 
