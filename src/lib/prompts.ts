@@ -253,28 +253,34 @@ Analyze these ${interviewCount} interview transcripts using The Mom Test lens.
 
 ### 1. Themes (5-10)
 For each theme:
+- **id**: Unique identifier like "theme_1", "theme_2", etc.
 - **name**: Clear, descriptive name
 - **description**: What this theme captures (focus on behaviors, not opinions)
 - **prevalence**: Percentage of interviews where it appears (0-100)
-- **supportingQuotes**: 2-3 direct quotes showing SPECIFIC examples or past behaviors
+- **supportingQuotes**: Array of 2-3 quote objects, each with:
+  - **quote**: The actual quote text (must not be empty)
+  - **interviewId**: Use "interview_1", "interview_2" etc. based on transcript order
+  - **context**: Brief context about when this was said (optional)
 - **sentiment**: positive, negative, neutral, or mixed
 - **evidenceStrength**: weak (opinions only), moderate (some specifics), strong (concrete examples with numbers/actions)
 
 ### 2. Key Insights (5-8)
 For each insight:
+- **id**: Unique identifier like "insight_1", "insight_2", etc.
 - **text**: Clear statement of what you learned about real behavior
 - **confidence**: Your confidence score (0-100)
 - **supportingInterviewCount**: How many interviews support this
+- **relatedThemes**: Array of theme IDs that relate to this insight
 - **goalAlignment**: How it relates to the research goals
-- **disconfirmingEvidence**: Any evidence that contradicts this insight
 
 ### 3. Recommendations (3-5)
 For each recommendation:
+- **id**: Unique identifier like "rec_1", "rec_2", etc.
 - **text**: Actionable recommendation based on observed behavior
 - **priority**: high, medium, or low
 - **impact**: Expected impact if implemented
 - **effort**: low, medium, or high
-- **evidenceBasis**: What specific findings support this recommendation
+- **relatedInsights**: Array of insight IDs that support this recommendation
 
 ### 4. Reality Check
 - **hypothesesSupported**: Which research hypotheses have behavioral evidence?
