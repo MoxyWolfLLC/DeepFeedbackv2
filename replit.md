@@ -115,9 +115,9 @@ The AI interviewer:
 - **Location**: Analysis page → Export dropdown menu
 - **Formats Available**:
   - Markdown (.md) - Full analysis report with themes, insights, and recommendations
-  - Slides JSON - Structured presentation data for import into slide tools
-  - Slides Markdown - Markdown-formatted slide content
+  - PowerPoint (.pptx) - Professional presentation with title, themes, insights, and recommendations slides
 - **API Routes**: `/api/export/analysis/markdown`, `/api/export/analysis/slides` (POST)
 
 ### Key Dependencies for Export
 - `xlsx` - Excel file generation for transcripts
+- `pptxgenjs` - PowerPoint file generation for analysis presentations

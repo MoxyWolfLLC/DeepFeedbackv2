@@ -50,7 +50,7 @@ export default function AnalysisPage() {
     })
   }
 
-  const handleExport = async (format: 'markdown' | 'slides-json' | 'slides-markdown') => {
+  const handleExport = async (format: 'markdown' | 'powerpoint') => {
     if (!latestAnalysis) return
 
     setIsExporting(true)
@@ -59,14 +59,10 @@ export default function AnalysisPage() {
         ? '/api/export/analysis/markdown'
         : '/api/export/analysis/slides'
 
-      const body = format === 'markdown'
-        ? { analysisId: latestAnalysis.id }
-        : { analysisId: latestAnalysis.id, format: format === 'slides-markdown' ? 'markdown-slides' : 'json' }
-
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ analysisId: latestAnalysis.id }),
       })
 
       if (!response.ok) {
@@ -77,7 +73,7 @@ export default function AnalysisPage() {
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = response.headers.get('Content-Disposition')?.split('filename=')[1]?.replace(/"/g, '') || `analysis.${format === 'markdown' ? 'md' : format === 'slides-json' ? 'json' : 'md'}`
+      a.download = response.headers.get('Content-Disposition')?.split('filename=')[1]?.replace(/"/g, '') || `analysis.${format === 'markdown' ? 'md' : 'pptx'}`
       document.body.appendChild(a)
       a.click()
       window.URL.revokeObjectURL(url)
@@ -152,13 +148,9 @@ export default function AnalysisPage() {
                     <FileText className="w-4 h-4 mr-2" />
                     Export as Markdown
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleExport('slides-markdown')}>
+                  <DropdownMenuItem onClick={() => handleExport('powerpoint')}>
                     <Presentation className="w-4 h-4 mr-2" />
-                    Export Slides (Markdown)
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleExport('slides-json')}>
-                    <Presentation className="w-4 h-4 mr-2" />
-                    Export Slides (JSON)
+                    Export as PowerPoint
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
