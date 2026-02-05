@@ -100,8 +100,17 @@ The AI interviewer:
 - Probes deeper when answers are vague or generic
 - Treats lukewarm responses as valuable data
 - Seeks disconfirming evidence, not just validation
-- Tracks turn counts with urgency warnings (NORMAL at 14+, SOON at 6, URGENT at 3 turns left)
-- Delivers closing script when max turns reached
+- Tracks question count and limits to configured N questions
+- After questions complete, generates a summary for participant review
+- Allows participants to correct the summary if needed
+- Asks for optional attribution (name/email) at the end
+
+### Interview Phases
+1. **QUESTIONS**: AI asks configured number of questions using ARP methodology
+2. **SUMMARIZING**: AI generates "here's what I heard" summary
+3. **REVIEWING**: Participant can confirm or correct the summary
+4. **ATTRIBUTION**: Participant can provide name/email or stay anonymous
+5. **DONE**: Interview complete
 
 ## Export Functionality
 

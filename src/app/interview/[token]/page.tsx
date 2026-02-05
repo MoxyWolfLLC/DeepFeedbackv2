@@ -2,7 +2,7 @@
 
 import { useParams } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
-import { Loader2, Send, Check } from 'lucide-react'
+import { Loader2, Send, Check, Edit3 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
@@ -15,11 +15,11 @@ export default function InterviewPage() {
   const { token } = useParams<{ token: string }>()
   const [message, setMessage] = useState('')
   const [isInitializing, setIsInitializing] = useState(false)
-  const [showOptIn, setShowOptIn] = useState(true)
-  const [optInSubmitted, setOptInSubmitted] = useState(false)
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
+  const [summaryFeedback, setSummaryFeedback] = useState('')
+  const [isEditingSummary, setIsEditingSummary] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const { data: interview, isLoading, refetch } = trpc.interview.getByToken.useQuery(
@@ -44,14 +44,30 @@ export default function InterviewPage() {
     },
   })
 
-  const optIn = trpc.interview.optInForResults.useMutation({
+  const submitFeedback = trpc.interview.submitSummaryFeedback.useMutation({
+    onSuccess: (data) => {
+      if (data.revised) {
+        refetch()
+        setSummaryFeedback('')
+        setIsEditingSummary(false)
+      } else {
+        refetch()
+      }
+    },
+  })
+
+  const confirmSummary = trpc.interview.confirmSummary.useMutation({
     onSuccess: () => {
-      setOptInSubmitted(true)
       refetch()
     },
   })
 
-  // Auto-initialize if interview has no messages
+  const submitAttribution = trpc.interview.submitAttribution.useMutation({
+    onSuccess: () => {
+      refetch()
+    },
+  })
+
   useEffect(() => {
     if (interview && interview.messages.length === 0 && !isInitializing && interview.status !== 'COMPLETED') {
       setIsInitializing(true)
@@ -59,7 +75,6 @@ export default function InterviewPage() {
     }
   }, [interview, isInitializing])
 
-  // Auto-scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [interview?.messages])
@@ -92,10 +107,11 @@ export default function InterviewPage() {
     )
   }
 
-  const questions = (interview.rubric.questions as any[]) || []
-  const progress = interview.turnCount > 0
-    ? Math.min((interview.turnCount / interview.maxTurns) * 100, 100)
-    : 0
+  const phase = (interview as any).phase || 'QUESTIONS'
+  const summary = (interview as any).summary || ''
+  const questionCount = interview.rubric.questionCount
+  const questionsAsked = (interview as any).questionsAsked || 0
+  const progress = Math.min((questionsAsked / questionCount) * 100, 100)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -107,22 +123,49 @@ export default function InterviewPage() {
     })
   }
 
+  const handleConfirmSummary = () => {
+    confirmSummary.mutate({ interviewId: interview.id })
+  }
+
+  const handleSubmitCorrection = () => {
+    if (!summaryFeedback.trim()) return
+    submitFeedback.mutate({
+      interviewId: interview.id,
+      feedback: summaryFeedback.trim(),
+      isCorrect: false,
+    })
+  }
+
+  const handleSubmitAttribution = (anonymous: boolean) => {
+    submitAttribution.mutate({
+      interviewId: interview.id,
+      firstName: anonymous ? undefined : firstName || undefined,
+      lastName: anonymous ? undefined : lastName || undefined,
+      email: anonymous ? undefined : email || undefined,
+      stayAnonymous: anonymous,
+    })
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Header */}
       <header className="bg-white border-b py-4 px-4">
         <div className="max-w-2xl mx-auto">
           <h1 className="font-semibold">{interview.rubric.title}</h1>
           <div className="flex items-center gap-2 mt-2">
             <Progress value={progress} className="flex-1 h-2" />
             <span className="text-xs text-muted-foreground">
-              {progress < 30 ? 'Just getting started' : progress < 70 ? 'Making progress' : 'Almost done'}
+              {phase === 'QUESTIONS' 
+                ? `Question ${questionsAsked} of ${questionCount}`
+                : phase === 'SUMMARIZING' || phase === 'REVIEWING'
+                ? 'Summarizing'
+                : phase === 'ATTRIBUTION'
+                ? 'Almost done'
+                : 'Complete'}
             </span>
           </div>
         </div>
       </header>
 
-      {/* Messages */}
       <main className="flex-1 overflow-y-auto p-4">
         <div className="max-w-2xl mx-auto space-y-4">
           {interview.messages.map((msg) => (
@@ -154,101 +197,9 @@ export default function InterviewPage() {
         </div>
       </main>
 
-      {/* Input */}
       <footer className="bg-white border-t p-4">
         <div className="max-w-2xl mx-auto">
-          {interview.status === 'COMPLETED' ? (
-            <Card>
-              <CardContent className="py-6">
-                <div className="text-center mb-6">
-                  <p className="text-lg font-medium text-green-600">
-                    Thank you for completing this interview!
-                  </p>
-                  <p className="text-muted-foreground mt-2">
-                    Your responses have been recorded.
-                  </p>
-                </div>
-
-                {/* Results Opt-in */}
-                {showOptIn && !optInSubmitted && !interview.wantsResults && (
-                  <div className="border-t pt-6">
-                    <p className="text-center font-medium mb-4">
-                      Would you like to receive the overall research results when they're ready?
-                    </p>
-                    <div className="space-y-4 max-w-sm mx-auto">
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <Label htmlFor="firstName">First Name</Label>
-                          <Input
-                            id="firstName"
-                            value={firstName}
-                            onChange={(e) => setFirstName(e.target.value)}
-                            placeholder="Jane"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="lastName">Last Name</Label>
-                          <Input
-                            id="lastName"
-                            value={lastName}
-                            onChange={(e) => setLastName(e.target.value)}
-                            placeholder="Doe"
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <Label htmlFor="email">Email</Label>
-                        <Input
-                          id="email"
-                          type="email"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          placeholder="jane@example.com"
-                        />
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          className="flex-1"
-                          onClick={() => {
-                            if (firstName && lastName && email) {
-                              optIn.mutate({
-                                interviewId: interview.id,
-                                firstName,
-                                lastName,
-                                email,
-                              })
-                            }
-                          }}
-                          disabled={!firstName || !lastName || !email || optIn.isPending}
-                        >
-                          {optIn.isPending ? (
-                            <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                          ) : null}
-                          Yes, send me the results
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          onClick={() => setShowOptIn(false)}
-                        >
-                          No thanks
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Confirmation after opt-in */}
-                {(optInSubmitted || interview.wantsResults) && (
-                  <div className="border-t pt-6 text-center">
-                    <div className="inline-flex items-center gap-2 text-green-600">
-                      <Check className="w-5 h-5" />
-                      <span>We'll send you the results when they're ready!</span>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ) : (
+          {phase === 'QUESTIONS' && interview.status !== 'COMPLETED' && (
             <form onSubmit={handleSubmit} className="flex gap-2">
               <Textarea
                 value={message}
@@ -276,6 +227,171 @@ export default function InterviewPage() {
                 )}
               </Button>
             </form>
+          )}
+
+          {(phase === 'SUMMARIZING' || (sendMessage.isPending && questionsAsked >= questionCount)) && (
+            <Card>
+              <CardContent className="py-6 text-center">
+                <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
+                <p className="text-lg font-medium">Preparing your summary...</p>
+                <p className="text-muted-foreground mt-2">
+                  I'm reviewing our conversation to capture what you shared.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {phase === 'REVIEWING' && summary && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Here's what I heard</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="bg-gray-50 rounded-lg p-4 text-sm whitespace-pre-wrap">
+                  {summary}
+                </div>
+
+                {!isEditingSummary ? (
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <Button 
+                      onClick={handleConfirmSummary}
+                      className="flex-1"
+                      disabled={confirmSummary.isPending}
+                    >
+                      {confirmSummary.isPending ? (
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      ) : (
+                        <Check className="w-4 h-4 mr-2" />
+                      )}
+                      Yes, that's accurate
+                    </Button>
+                    <Button 
+                      variant="outline"
+                      onClick={() => setIsEditingSummary(true)}
+                      className="flex-1"
+                    >
+                      <Edit3 className="w-4 h-4 mr-2" />
+                      I'd like to correct something
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <Label htmlFor="correction">What would you like to correct or add?</Label>
+                    <Textarea
+                      id="correction"
+                      value={summaryFeedback}
+                      onChange={(e) => setSummaryFeedback(e.target.value)}
+                      placeholder="Tell me what I got wrong or missed..."
+                      className="min-h-[100px]"
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={handleSubmitCorrection}
+                        disabled={!summaryFeedback.trim() || submitFeedback.isPending}
+                        className="flex-1"
+                      >
+                        {submitFeedback.isPending ? (
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        ) : null}
+                        Submit Correction
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        onClick={() => {
+                          setIsEditingSummary(false)
+                          setSummaryFeedback('')
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {phase === 'ATTRIBUTION' && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">One last thing...</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-muted-foreground">
+                  Would you like to provide your name and email so we can attribute your insights? 
+                  This is completely optional - you can stay anonymous if you prefer.
+                </p>
+                
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label htmlFor="firstName">First Name</Label>
+                      <Input
+                        id="firstName"
+                        value={firstName}
+                        onChange={(e) => setFirstName(e.target.value)}
+                        placeholder="Jane"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="lastName">Last Name</Label>
+                      <Input
+                        id="lastName"
+                        value={lastName}
+                        onChange={(e) => setLastName(e.target.value)}
+                        placeholder="Doe"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="email">Email (optional - to receive results)</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="jane@example.com"
+                    />
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <Button
+                      onClick={() => handleSubmitAttribution(false)}
+                      disabled={(!firstName || !lastName) || submitAttribution.isPending}
+                      className="flex-1"
+                    >
+                      {submitAttribution.isPending ? (
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      ) : null}
+                      Submit with my name
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => handleSubmitAttribution(true)}
+                      disabled={submitAttribution.isPending}
+                      className="flex-1"
+                    >
+                      Stay anonymous
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {(phase === 'DONE' || interview.status === 'COMPLETED') && (
+            <Card>
+              <CardContent className="py-6 text-center">
+                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Check className="w-6 h-6 text-green-600" />
+                </div>
+                <p className="text-lg font-medium text-green-600">
+                  Thank you for completing this interview!
+                </p>
+                <p className="text-muted-foreground mt-2">
+                  Your responses have been recorded and will help inform our research.
+                </p>
+              </CardContent>
+            </Card>
           )}
         </div>
       </footer>

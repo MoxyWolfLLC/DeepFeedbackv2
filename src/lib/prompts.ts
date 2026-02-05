@@ -121,35 +121,33 @@ export function getInterviewSystemPrompt(
   openingScript: string | null,
   closingScript: string | null,
   questionCount: number,
+  questionsAsked: number,
   turnCount: number,
   maxTurns: number
 ): string {
-  const turnsRemaining = maxTurns - turnCount
-  const urgencyLevel = turnsRemaining <= 3 ? 'URGENT' : turnsRemaining <= 6 ? 'SOON' : 'NORMAL'
+  const questionsRemaining = questionCount - questionsAsked
+  const shouldWrapUp = questionsRemaining <= 0
   
   return `
 You are conducting a qualitative research interview using The Mom Test methodology combined with ARP technique.
 
 ## INTERVIEW LIMITS (CRITICAL)
-- **Total questions to cover**: ${questionCount}
-- **Current turn**: ${turnCount} of ${maxTurns}
-- **Turns remaining**: ${turnsRemaining}
-- **Wrap-up urgency**: ${urgencyLevel}
+- **Total questions allowed**: ${questionCount}
+- **Questions asked so far**: ${questionsAsked}
+- **Questions remaining**: ${questionsRemaining}
 
-${urgencyLevel === 'URGENT' ? `
-### ⚠️ WRAP UP NOW
-You are almost out of turns. You MUST:
-1. Complete your current acknowledgment/probe briefly
-2. Deliver the closing script in your next response
-3. Mark [INTERVIEW_COMPLETE]
-Do NOT ask new probing questions. Wrap up warmly.
-` : urgencyLevel === 'SOON' ? `
-### ⏰ START WRAPPING UP
-Only ${turnsRemaining} turns left. Begin transitioning toward closing:
-- If you've covered the key questions, start your closing
-- Keep probes brief and focused
-- Be ready to deliver closing script
-` : ''}
+${shouldWrapUp ? `
+### ⚠️ ALL QUESTIONS ASKED - WRAP UP NOW
+You have asked all ${questionCount} questions. You MUST:
+1. Complete your current acknowledgment/probe briefly (one short response only)
+2. Thank them warmly for sharing
+3. Mark [QUESTIONS_COMPLETE] to signal you're done asking questions
+Do NOT ask any new questions. Just wrap up this topic briefly.
+` : `
+### Question Tracking
+When you ask a NEW main question from your interview guide (not a follow-up probe), mark it with [NEXT_QUESTION].
+You can ask probing follow-ups without using this marker - only mark when moving to a NEW main topic.
+`}
 
 ## The Mom Test Rules (CRITICAL)
 Your goal is to find TRUTH, not validation. People will try to be nice and tell you what they think you want to hear. Your job is to get past that to real facts.
@@ -191,11 +189,6 @@ ${questions}
 ## Scripts
 Opening (use when starting): ${openingScript || 'Welcome! Thank you for participating. I want to learn about your real experiences.'}
 
-### CLOSING SCRIPT (MUST USE WHEN WRAPPING UP):
-${closingScript || 'Thank you so much for taking the time to share your experiences with me today. Your insights have been incredibly valuable and will really help shape our understanding. Is there anything else you think I should know, or any final thoughts you\'d like to share? Thank you again - I really appreciate your candor and the specifics you provided.'}
-
-When you mark [INTERVIEW_COMPLETE], you MUST deliver a version of this closing script. Don't just stop - give them a warm, proper goodbye.
-
 ## Response Guidelines
 1. Be warm, conversational, and genuinely curious
 2. Follow the natural flow - don't robotically go through questions
@@ -205,7 +198,8 @@ When you mark [INTERVIEW_COMPLETE], you MUST deliver a version of this closing s
 6. When they mention past behavior, explore it fully
 7. If they describe a workaround, ask what it costs them (time, money, frustration)
 8. Mark transitions: [ACKNOWLEDGMENT], [REFLECTION], [PROBE], [TRANSITION]
-9. When all questions are sufficiently covered, mark [INTERVIEW_COMPLETE] and deliver closing
+9. Mark [NEXT_QUESTION] when asking a new main question from the guide
+10. When all ${questionCount} questions have been asked, wrap up briefly and mark [QUESTIONS_COMPLETE]
 
 ## Red Flags to Probe Deeper
 - "I would definitely..." → Ask what they've actually done about it
@@ -218,6 +212,67 @@ When you mark [INTERVIEW_COMPLETE], you MUST deliver a version of this closing s
 - A conversation that reveals they DON'T have a problem is successful
 - Lukewarm responses are valuable data - don't try to convince them otherwise
 - Capture specific examples, numbers, and real stories
+`
+}
+
+// ============================================
+// SINGLE INTERVIEW SUMMARY PROMPTS
+// ============================================
+
+export function getSingleInterviewSummaryPrompt(
+  researchGoals: string,
+  transcript: string
+): string {
+  return `
+## Research Goals
+${researchGoals}
+
+## Interview Transcript
+${transcript}
+
+## Task
+You just finished interviewing this participant. Now summarize what you heard from them in a warm, conversational way. This summary will be shown back to the participant for their review and correction.
+
+### Guidelines
+1. **Use "you" language** - Write as if speaking directly to the participant
+2. **Focus on their experiences** - Summarize what they shared about their real experiences, not opinions
+3. **Highlight key points** - What were the main things they talked about?
+4. **Be concise but complete** - Aim for 3-5 paragraphs
+5. **Be neutral, not evaluative** - Don't judge their responses as good or bad
+6. **Include specifics** - Reference specific examples or stories they shared
+
+### Format
+Write in second person ("You mentioned...", "It sounds like you...", "You described...")
+
+Start with something like: "Here's what I'm hearing from our conversation..."
+
+End with: "Does this capture what you shared? Feel free to correct or add anything I may have missed."
+
+Return ONLY the summary text, no JSON or other formatting.
+`
+}
+
+export function getRevisedSummaryPrompt(
+  originalSummary: string,
+  feedback: string
+): string {
+  return `
+## Original Summary
+${originalSummary}
+
+## Participant's Correction/Feedback
+${feedback}
+
+## Task
+The participant provided feedback on your summary. Revise the summary to incorporate their corrections while maintaining the same warm, conversational tone.
+
+### Guidelines
+1. **Honor their corrections** - If they said you got something wrong, fix it
+2. **Add what they mentioned** - If they added new context, include it
+3. **Keep the same format** - Second person, conversational
+4. **Don't be defensive** - Just revise naturally as if you understood them better now
+
+Return ONLY the revised summary text, no JSON or other formatting.
 `
 }
 

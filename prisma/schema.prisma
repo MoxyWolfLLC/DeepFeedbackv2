@@ -52,9 +52,13 @@ model Interview {
   participantEmail String?         @map("participant_email")
   wantsResults     Boolean         @default(false) @map("wants_results")
   status           InterviewStatus @default(NOT_STARTED)
+  phase            InterviewPhase  @default(QUESTIONS)
   currentQuestion  Int             @default(0) @map("current_question")
+  questionsAsked   Int             @default(0) @map("questions_asked")
   turnCount        Int             @default(0) @map("turn_count")
   maxTurns         Int             @default(20) @map("max_turns")
+  summary          String?
+  summaryFeedback  String?         @map("summary_feedback")
   startedAt        DateTime?       @map("started_at")
   completedAt      DateTime?       @map("completed_at")
   pausedAt         DateTime?       @map("paused_at")
@@ -67,6 +71,14 @@ model Interview {
   @@index([rubricId])
   @@index([accessToken])
   @@map("interviews")
+}
+
+enum InterviewPhase {
+  QUESTIONS
+  SUMMARIZING
+  REVIEWING
+  ATTRIBUTION
+  DONE
 }
 
 enum InterviewStatus {
