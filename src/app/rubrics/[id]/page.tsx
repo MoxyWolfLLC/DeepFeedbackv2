@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, BarChart3, Share2, RefreshCw, Loader2, Pencil, Trash2, X, Eye } from 'lucide-react'
+import { ArrowLeft, BarChart3, Share2, RefreshCw, Loader2, Pencil, Trash2, X, Eye, Download, CheckSquare, Square } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import {
@@ -17,6 +17,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
+import { Checkbox } from '@/components/ui/checkbox'
 import { trpc } from '@/lib/trpc/client'
 import { ShareModal } from '@/components/share-modal'
 
@@ -26,6 +27,9 @@ export default function RubricDetailPage() {
   const [shareModalOpen, setShareModalOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [interviewToDelete, setInterviewToDelete] = useState<string | null>(null)
+  const [selectedInterviews, setSelectedInterviews] = useState<Set<string>>(new Set())
+  const [isExporting, setIsExporting] = useState(false)
+
   const { data: rubric, isLoading, refetch } = trpc.rubric.get.useQuery({ id })
 
   const regenerate = trpc.rubric.regenerateQuestions.useMutation({
@@ -55,6 +59,61 @@ export default function RubricDetailPage() {
     }
   }
 
+  const toggleInterviewSelection = (interviewId: string) => {
+    const newSelection = new Set(selectedInterviews)
+    if (newSelection.has(interviewId)) {
+      newSelection.delete(interviewId)
+    } else {
+      newSelection.add(interviewId)
+    }
+    setSelectedInterviews(newSelection)
+  }
+
+  const toggleAllInterviews = () => {
+    if (!rubric) return
+    const completedIds = rubric.interviews
+      .filter((i) => i.status === 'COMPLETED')
+      .map((i) => i.id)
+
+    if (selectedInterviews.size === completedIds.length) {
+      setSelectedInterviews(new Set())
+    } else {
+      setSelectedInterviews(new Set(completedIds))
+    }
+  }
+
+  const handleExportTranscripts = async () => {
+    if (selectedInterviews.size === 0) return
+
+    setIsExporting(true)
+    try {
+      const response = await fetch('/api/export/transcripts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ interviewIds: Array.from(selectedInterviews) }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Export failed')
+      }
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = response.headers.get('Content-Disposition')?.split('filename=')[1]?.replace(/"/g, '') || 'transcripts.xlsx'
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+    } catch (error) {
+      console.error('Export failed:', error)
+      alert('Failed to export transcripts. Please try again.')
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -71,13 +130,12 @@ export default function RubricDetailPage() {
     )
   }
 
-  const questions = rubric.questions as any[] || []
-  const completedInterviews = rubric.interviews.filter(i => i.status === 'COMPLETED').length
-  const canAnalyze = completedInterviews >= 5
+  const questions = (rubric.questions as any[]) || []
+  const completedInterviews = rubric.interviews.filter((i) => i.status === 'COMPLETED')
+  const canAnalyze = completedInterviews.length >= 5
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <header className="bg-white border-b">
         <div className="max-w-5xl mx-auto px-4 py-4">
           <Link
@@ -90,9 +148,7 @@ export default function RubricDetailPage() {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="max-w-5xl mx-auto px-4 py-8">
-        {/* Title & Actions */}
         <div className="flex items-start justify-between mb-8">
           <div>
             <h1 className="text-2xl font-bold">{rubric.title}</h1>
@@ -150,7 +206,7 @@ export default function RubricDetailPage() {
                 </Button>
               </Link>
             ) : (
-              <Button variant="outline" size="sm" disabled title={`Need ${5 - completedInterviews} more completed interviews`}>
+              <Button variant="outline" size="sm" disabled title={`Need ${5 - completedInterviews.length} more completed interviews`}>
                 <BarChart3 className="w-4 h-4 mr-2" />
                 Analysis
               </Button>
@@ -158,7 +214,6 @@ export default function RubricDetailPage() {
           </div>
         </div>
 
-        {/* Stats */}
         <div className="grid grid-cols-3 gap-4 mb-8">
           <Card>
             <CardContent className="pt-6">
@@ -175,7 +230,7 @@ export default function RubricDetailPage() {
           <Card>
             <CardContent className="pt-6">
               <div className="text-2xl font-bold">
-                {completedInterviews}
+                {completedInterviews.length}
                 {!canAnalyze && (
                   <span className="text-sm font-normal text-muted-foreground ml-2">
                     / 5 needed
@@ -187,7 +242,6 @@ export default function RubricDetailPage() {
           </Card>
         </div>
 
-        {/* Questions */}
         <Card className="mb-8">
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
@@ -241,7 +295,6 @@ export default function RubricDetailPage() {
           </CardContent>
         </Card>
 
-        {/* Recent Interviews */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
@@ -250,10 +303,40 @@ export default function RubricDetailPage() {
                 Participants who have taken this interview
               </CardDescription>
             </div>
-            <Button size="sm" onClick={() => setShareModalOpen(true)}>
-              <Share2 className="w-4 h-4 mr-2" />
-              Share Interview
-            </Button>
+            <div className="flex items-center gap-2">
+              {completedInterviews.length > 0 && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={toggleAllInterviews}
+                  >
+                    {selectedInterviews.size === completedInterviews.length ? (
+                      <CheckSquare className="w-4 h-4 mr-2" />
+                    ) : (
+                      <Square className="w-4 h-4 mr-2" />
+                    )}
+                    {selectedInterviews.size === completedInterviews.length ? 'Deselect All' : 'Select All'}
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={handleExportTranscripts}
+                    disabled={selectedInterviews.size === 0 || isExporting}
+                  >
+                    {isExporting ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Download className="w-4 h-4 mr-2" />
+                    )}
+                    Export ({selectedInterviews.size})
+                  </Button>
+                </>
+              )}
+              <Button size="sm" onClick={() => setShareModalOpen(true)}>
+                <Share2 className="w-4 h-4 mr-2" />
+                Share Interview
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             {rubric.interviews.length === 0 ? (
@@ -267,13 +350,21 @@ export default function RubricDetailPage() {
                     key={interview.id}
                     className="flex items-center justify-between py-2 border-b last:border-0 group"
                   >
-                    <div>
-                      <p className="font-medium">
-                        {interview.participantName || 'Anonymous'}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {interview.participantEmail || 'No email'}
-                      </p>
+                    <div className="flex items-center gap-3">
+                      {interview.status === 'COMPLETED' && (
+                        <Checkbox
+                          checked={selectedInterviews.has(interview.id)}
+                          onCheckedChange={() => toggleInterviewSelection(interview.id)}
+                        />
+                      )}
+                      <div>
+                        <p className="font-medium">
+                          {interview.participantName || 'Anonymous'}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {interview.participantEmail || 'No email'}
+                        </p>
+                      </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <span
@@ -314,7 +405,6 @@ export default function RubricDetailPage() {
         </Card>
       </main>
 
-      {/* Share Modal */}
       <ShareModal
         open={shareModalOpen}
         onOpenChange={setShareModalOpen}
@@ -322,7 +412,6 @@ export default function RubricDetailPage() {
         rubricTitle={rubric.title}
       />
 
-      {/* Delete Interview Dialog */}
       <AlertDialog open={!!interviewToDelete} onOpenChange={(open) => !open && setInterviewToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>

@@ -3,26 +3,30 @@
 import { useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, BarChart3, Loader2, RefreshCw, CheckCircle2, AlertCircle, TrendingUp, Lightbulb, Target } from 'lucide-react'
+import { ArrowLeft, BarChart3, Loader2, RefreshCw, CheckCircle2, AlertCircle, TrendingUp, Lightbulb, Target, Download, FileText, Presentation } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { trpc } from '@/lib/trpc/client'
 
 export default function AnalysisPage() {
   const { id } = useParams<{ id: string }>()
   const [isRunning, setIsRunning] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
 
-  // Get rubric data
   const { data: rubric, isLoading: rubricLoading } = trpc.rubric.get.useQuery({ id })
 
-  // Get latest analysis
   const { data: latestAnalysis, isLoading: analysisLoading, refetch } = trpc.analysis.getLatest.useQuery(
     { rubricId: id },
     { enabled: !!id }
   )
 
-  // Run analysis mutation
   const runAnalysis = trpc.analysis.run.useMutation({
     onMutate: () => setIsRunning(true),
     onSuccess: () => {
@@ -44,6 +48,46 @@ export default function AnalysisPage() {
       interviewIds: completedInterviewIds,
       useCouncil: false,
     })
+  }
+
+  const handleExport = async (format: 'markdown' | 'slides-json' | 'slides-markdown') => {
+    if (!latestAnalysis) return
+
+    setIsExporting(true)
+    try {
+      const endpoint = format === 'markdown'
+        ? '/api/export/analysis/markdown'
+        : '/api/export/analysis/slides'
+
+      const body = format === 'markdown'
+        ? { analysisId: latestAnalysis.id }
+        : { analysisId: latestAnalysis.id, format: format === 'slides-markdown' ? 'markdown-slides' : 'json' }
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+
+      if (!response.ok) {
+        throw new Error('Export failed')
+      }
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = response.headers.get('Content-Disposition')?.split('filename=')[1]?.replace(/"/g, '') || `analysis.${format === 'markdown' ? 'md' : format === 'slides-json' ? 'json' : 'md'}`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+    } catch (error) {
+      console.error('Export failed:', error)
+      alert('Failed to export. Please try again.')
+    } finally {
+      setIsExporting(false)
+    }
   }
 
   if (rubricLoading || analysisLoading) {
@@ -69,7 +113,6 @@ export default function AnalysisPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <header className="bg-white border-b">
         <div className="max-w-5xl mx-auto px-4 py-4">
           <Link
@@ -82,9 +125,7 @@ export default function AnalysisPage() {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="max-w-5xl mx-auto px-4 py-8">
-        {/* Title & Actions */}
         <div className="flex items-start justify-between mb-8">
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
@@ -93,25 +134,54 @@ export default function AnalysisPage() {
             </h1>
             <p className="text-muted-foreground mt-1">{rubric.title}</p>
           </div>
-          <Button
-            onClick={handleRunAnalysis}
-            disabled={isRunning || completedInterviews.length < 5}
-          >
-            {isRunning ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Analyzing...
-              </>
-            ) : (
-              <>
-                <RefreshCw className="w-4 h-4 mr-2" />
-                {latestAnalysis ? 'Re-run Analysis' : 'Run Analysis'}
-              </>
+          <div className="flex items-center gap-2">
+            {latestAnalysis && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" disabled={isExporting}>
+                    {isExporting ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Download className="w-4 h-4 mr-2" />
+                    )}
+                    Export
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => handleExport('markdown')}>
+                    <FileText className="w-4 h-4 mr-2" />
+                    Export as Markdown
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleExport('slides-markdown')}>
+                    <Presentation className="w-4 h-4 mr-2" />
+                    Export Slides (Markdown)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleExport('slides-json')}>
+                    <Presentation className="w-4 h-4 mr-2" />
+                    Export Slides (JSON)
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
-          </Button>
+            <Button
+              onClick={handleRunAnalysis}
+              disabled={isRunning || completedInterviews.length < 5}
+            >
+              {isRunning ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Analyzing...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  {latestAnalysis ? 'Re-run Analysis' : 'Run Analysis'}
+                </>
+              )}
+            </Button>
+          </div>
         </div>
 
-        {/* Running State */}
         {isRunning && (
           <Card className="mb-8">
             <CardContent className="pt-6">
@@ -129,7 +199,6 @@ export default function AnalysisPage() {
           </Card>
         )}
 
-        {/* No Analysis Yet */}
         {!latestAnalysis && !isRunning && (
           <Card className="mb-8">
             <CardContent className="pt-6 text-center py-12">
@@ -150,10 +219,8 @@ export default function AnalysisPage() {
           </Card>
         )}
 
-        {/* Analysis Results */}
         {latestAnalysis && !isRunning && (
           <>
-            {/* Summary Stats */}
             <div className="grid grid-cols-4 gap-4 mb-8">
               <Card>
                 <CardContent className="pt-6">
@@ -181,7 +248,6 @@ export default function AnalysisPage() {
               </Card>
             </div>
 
-            {/* Themes */}
             <Card className="mb-8">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -213,7 +279,7 @@ export default function AnalysisPage() {
                             </p>
                             {theme.supportingQuotes.slice(0, 2).map((q: any, i: number) => (
                               <blockquote key={i} className="text-sm italic border-l-2 border-gray-300 pl-3 mb-2">
-                                "{q.quote}"
+                                "{q.quote || q}"
                               </blockquote>
                             ))}
                           </div>
@@ -225,7 +291,6 @@ export default function AnalysisPage() {
               </CardContent>
             </Card>
 
-            {/* Insights */}
             <Card className="mb-8">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -258,7 +323,6 @@ export default function AnalysisPage() {
               </CardContent>
             </Card>
 
-            {/* Recommendations */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -322,14 +386,13 @@ export default function AnalysisPage() {
               </CardContent>
             </Card>
 
-            {/* Analysis Meta */}
             <div className="mt-8 text-center text-sm text-muted-foreground">
               Analysis completed on{' '}
               {latestAnalysis.completedAt
                 ? new Date(latestAnalysis.completedAt).toLocaleString()
                 : 'Unknown'}
               {latestAnalysis.processingTime && (
-                <span> • Processing time: {(latestAnalysis.processingTime / 1000).toFixed(1)}s</span>
+                <span> | Processing time: {(latestAnalysis.processingTime / 1000).toFixed(1)}s</span>
               )}
             </div>
           </>

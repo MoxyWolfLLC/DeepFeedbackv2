@@ -100,3 +100,24 @@ The AI interviewer:
 - Probes deeper when answers are vague or generic
 - Treats lukewarm responses as valuable data
 - Seeks disconfirming evidence, not just validation
+- Tracks turn counts with urgency warnings (NORMAL at 14+, SOON at 6, URGENT at 3 turns left)
+- Delivers closing script when max turns reached
+
+## Export Functionality
+
+### Transcript Export
+- **Location**: Rubrics detail page → Recent Interviews section
+- **Selection**: Checkbox per completed interview, Select All/Deselect All buttons
+- **Format**: Multi-sheet Excel (.xlsx) with Summary, Individual interview sheets, and Combined transcript
+- **API Route**: `/api/export/transcripts` (POST)
+
+### Analysis Export
+- **Location**: Analysis page → Export dropdown menu
+- **Formats Available**:
+  - Markdown (.md) - Full analysis report with themes, insights, and recommendations
+  - Slides JSON - Structured presentation data for import into slide tools
+  - Slides Markdown - Markdown-formatted slide content
+- **API Routes**: `/api/export/analysis/markdown`, `/api/export/analysis/slides` (POST)
+
+### Key Dependencies for Export
+- `xlsx` - Excel file generation for transcripts
